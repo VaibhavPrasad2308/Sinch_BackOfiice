@@ -7,105 +7,129 @@ import Header from "@/components/Header";
 
 function Page() {
   const router = useRouter();
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
-  
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleClick = () => {
-    router.push("/DidPlanList");
-  };
+  // ✅ Form Data & Errors
+  const [formData, setFormData] = useState({
+    planname: '',
+    country: '',
+    description: '',
+    price: '',
+    call_limit: '',
+    sms_limit: '',
+    data_limit: '',
+    validity: '',
+    number_assign: ''
+  });
+
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
   useEffect(() => {
-      // Read sidebar state from localStorage (matches your sidebar component)
-      const savedState = localStorage.getItem('sidebarOpen');
-      if (savedState !== null) {
-        setSidebarOpen(JSON.parse(savedState));
+    const savedState = localStorage.getItem("sidebarOpen");
+    if (savedState !== null) {
+      setSidebarOpen(JSON.parse(savedState));
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const currentState = localStorage.getItem("sidebarOpen");
+      if (currentState !== null) {
+        setSidebarOpen(JSON.parse(currentState));
       }
-    }, []);
-    useEffect(() => {
-      // Function to handle storage events
-      const handleStorageChange = () => {
-        const currentState = localStorage.getItem('sidebarOpen');
-        if (currentState !== null) {
-          setSidebarOpen(JSON.parse(currentState));
-        }
-      };
-      
-      // Set up an interval to check localStorage (since storage event only fires in other tabs)
-      const intervalId = setInterval(handleStorageChange, 300);
-      
-      // Clean up on unmount
-      return () => clearInterval(intervalId);
-    }, []);
+    };
+    const intervalId = setInterval(handleStorageChange, 300);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // ✅ Handle Input Changes (includes $ formatting for price)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    if (name === "price") {
+      let priceValue = value.startsWith("$") ? value : `$${value}`;
+      if (!priceValue.match(/^\$\d*\.?\d{0,2}$/)) return; // optional: prevent invalid price
+      setFormData({ ...formData, [name]: priceValue });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  // ✅ Validation on Submit
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const newErrors: { [key: string]: string } = {};
+
+    if (!formData.planname.trim()) newErrors.planname = "Plan name is required.";
+    if (!formData.country.trim()) newErrors.country = "Country is required.";
+    if (!formData.price || !formData.price.startsWith("$")) newErrors.price = "Valid price is required.";
+    if (!formData.validity.trim()) newErrors.validity = "Validity is required.";
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0) {
+      // ✅ Submit form or API call here
+      console.log("Form submitted:", formData);
+    }
+  };
+
   return (
     <>
       <div style={styles.pageContainer}>
-        <Sidebar/>
-        <div style={{
-        ...styles.mainWrapper,
-        marginLeft: isSidebarOpen ? '257px' : '70px', // Adjust based on collapsed width (16px + padding)
-        transition: 'margin-left 0.3s ease-in-out'
-      }}>
-          <Header/>
-          <div  style={styles.contentWrapper}>
-            {/* <div>Get the DID plan list by clicking on this button</div> */}
-      {/* <button onClick={handleClick} className="px-4 py-2 bg-blue-600 text-black rounded-md">
-        Go to DID Plan List
-      </button> */}
-      <form action="">
-          <div style={styles.formGrid}>
-                {[ 
-                  { label: 'Plan Name', name: 'planname', placeholder: 'Enter plan name', required: true },
-                  { label: 'Country', name: 'country', placeholder: 'Enter country', required: true },
-                  { label: 'Description', name: 'description', placeholder: 'Enter description' },
-                  { label: 'Price', name: 'price', placeholder: 'Enter price (e.g., 40.00)', required: true },
-                  { label: 'Call Limit', name: 'call_limit', placeholder: 'Enter call limit (e.g., 10)' },
-                  { label: 'SMS Limit', name: 'sms_limit', placeholder: 'Enter SMS limit (e.g., 5)' },
-                  { label: 'Data Limit', name: 'data_limit', placeholder: 'Enter data limit (e.g., 5)' },
-                  { label: 'Validity', name: 'validity', placeholder: 'Enter validity in days (e.g., 5)', required: true },
-                  { label: 'Number Assign', name: 'number_assign', placeholder: 'Enter number assign', disabled: true }
-                ].map(({ label, name, placeholder, disabled, required }) => (
+        <Sidebar />
+        <div
+          style={{
+            ...styles.mainWrapper,
+            marginLeft: isSidebarOpen ? "257px" : "70px",
+            transition: "margin-left 0.3s ease-in-out",
+          }}
+        >
+          <Header />
+          <div style={styles.contentWrapper}>
+            <form onSubmit={handleSubmit}>
+              <div style={styles.formGrid}>
+                {[
+                  { label: "Plan Name", name: "planname", placeholder: "Enter plan name", required: true },
+                  { label: "Country", name: "country", placeholder: "Enter country", required: true },
+                  { label: "Description", name: "description", placeholder: "Enter description" },
+                  { label: "Price (USD)", name: "price", placeholder: "Enter price (e.g., 40.00)", required: true },
+                  { label: "Call Limit", name: "call_limit", placeholder: "Enter call limit (e.g., 10)" },
+                  { label: "SMS Limit", name: "sms_limit", placeholder: "Enter SMS limit (e.g., 5)" },
+                  { label: "Data Limit", name: "data_limit", placeholder: "Enter data limit (e.g., 5)" },
+                  { label: "Validity (In Days)", name: "validity", placeholder: "Enter validity in days (e.g., 5)", required: true },
+                  // { label: "Number Assign", name: "number_assign", placeholder: "Enter number assign", disabled: true },
+                ].map(({ label, name, placeholder, required }) => (
                   <div key={name} style={styles.formGroup as React.CSSProperties}>
                     <label style={styles.label}>
-                      {label} {required && <span style={{ color: 'red' }}>*</span>}
+                      {label} {required && <span style={{ color: "red" }}>*</span>}
                     </label>
                     <input
                       type="text"
                       name={name}
-                      // value={formData[name as keyof FormData]}
-                      // onChange={handleChange}
+                      value={formData[name as keyof typeof formData]}
+                      onChange={handleChange}
                       placeholder={placeholder}
-                      // disabled={disabled || !token}
+                      // disabled={disabled}
                       style={styles.input}
                       required={required}
                     />
+                    {errors[name] && <span style={{ color: "red", fontSize: "0.8rem" }}>{errors[name]}</span>}
                   </div>
                 ))}
               </div>
-              </form>
-
               <div style={styles.buttonGroup}>
-                <button 
-                  type="submit" 
-                  style={styles.createButton}
-                  // disabled={isLoading || !token}
-                >
-                  Create  plan
+                <button type="submit" style={styles.createButton}>
+                  Create plan
                 </button>
-                <button 
-                  type="button" 
-                  style={styles.detailsButton}
-                  // onClick={() => router.push('/plansList')}
-                  // disabled={isLoading}
-                   onClick={handleClick}
-                >
-                  Details
-                </button>
+                <button type="button" style={styles.detailsButton} onClick={() => router.push("/DidPlanList")}>
+  Details
+</button>
+
               </div>
-          
-            </div>
-
-
-            </div>
-    
+            </form>
+          </div>
+        </div>
       </div>
     </>
   );

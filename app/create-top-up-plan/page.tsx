@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/sidebar';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import React, { CSSProperties } from 'react';
 
 interface FormData {
   planname: string;
@@ -30,6 +31,7 @@ export default function CreateTopUpPlan() {
   const [token, setToken] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [buyCost, setBuyCost] = useState<string>('0.00');
   const [formData, setFormData] = useState<FormData  & {flag : String}>({
     planname: '',
     country: '',
@@ -81,6 +83,14 @@ export default function CreateTopUpPlan() {
       console.log('User role:', role);
     }
   }, []);
+
+  // Calculate buy cost whenever price or call_limit changes
+  useEffect(() => {
+    const perMinutePrice = parseFloat(formData.price) || 0;
+    const callLimit = parseInt(formData.call_limit) || 0;
+    const calculatedCost = (perMinutePrice * callLimit).toFixed(2);
+    setBuyCost(calculatedCost);
+  }, [formData.price, formData.call_limit]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -176,43 +186,163 @@ export default function CreateTopUpPlan() {
     }
   };
 
+  // Define styles with proper TypeScript types
+  const pageContainerStyle: CSSProperties = {
+    display: 'flex',
+    minHeight: '100vh',
+    fontFamily: 'system-ui, sans-serif',
+    backgroundColor: '#f5f6f7'
+  };
+
+  const mainWrapperStyle: CSSProperties = {
+    flex: 1,
+    marginLeft: isSidebarOpen ? '257px' : '70px',
+    padding: '0rem',
+    transition: 'margin-left 0.3s ease-in-out'
+  };
+
+  const contentWrapperStyle: CSSProperties = {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    paddingTop: '1rem'
+  };
+
+  const formContainerStyle: CSSProperties = {
+    backgroundColor: 'white',
+    borderRadius: '0.5rem',
+    padding: '1rem',
+    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
+  };
+
+  const formGridStyle: CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '1rem'
+  };
+
+  const formGroupStyle: CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column'
+  };
+
+  const labelStyle: CSSProperties = {
+    fontWeight: '500',
+    marginBottom: '0.1rem',
+    color: '#333'
+  };
+
+  const inputStyle: CSSProperties = {
+    padding: '0.4rem',
+    border: '1px solid #ccc',
+    borderRadius: '0.375rem',
+    fontSize: '1rem',
+    outline: 'none'
+  };
+
+  const inputWithDollarStyle: CSSProperties = {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center'
+  };
+
+  const dollarSignStyle: CSSProperties = {
+    position: 'absolute',
+    left: '8px',
+    color: '#666',
+    zIndex: 1
+  };
+
+  const inputDollarStyle: CSSProperties = {
+    padding: '0.4rem 0.4rem 0.4rem 20px',
+    border: '1px solid #ccc',
+    borderRadius: '0.375rem',
+    fontSize: '1rem',
+    outline: 'none',
+    width: '100%'
+  };
+
+  const readOnlyInputDollarStyle: CSSProperties = {
+    ...inputDollarStyle,
+    backgroundColor: '#f9f9f9'
+  };
+
+  const buttonGroupStyle: CSSProperties = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '1rem',
+    marginTop: '2rem'
+  };
+
+  const createButtonStyle: CSSProperties = {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#111827',
+    color: 'white',
+    border: 'none',
+    borderRadius: '0.375rem',
+    fontWeight: '500',
+    cursor: 'pointer'
+  };
+
+  const detailsButtonStyle: CSSProperties = {
+    padding: '0.75rem 1.5rem',
+    backgroundColor: '#ffffff',
+    border: '1px solid #ccc',
+    borderRadius: '0.375rem',
+    fontWeight: '500',
+    cursor: 'pointer'
+  };
+
+  const errorMessageStyle: CSSProperties = {
+    color: '#dc2626',
+    padding: '0.75rem',
+    marginBottom: '1rem',
+    backgroundColor: '#fee2e2',
+    borderRadius: '0.25rem',
+    border: '1px solid #fecaca'
+  };
+
+  const warningMessageStyle: CSSProperties = {
+    color: '#d97706',
+    padding: '0.75rem',
+    marginBottom: '1rem',
+    backgroundColor: '#fef3c7',
+    borderRadius: '0.25rem',
+    border: '1px solid #fde68a'
+  };
+
+  const linkStyle: CSSProperties = {
+    color: '#1d4ed8',
+    textDecoration: 'underline',
+    fontWeight: 500
+  };
+
   return (
-    <div style={styles.pageContainer}>
+    <div style={pageContainerStyle}>
       <Sidebar />
-      <div style={{
-        ...styles.mainWrapper,
-        marginLeft: isSidebarOpen ? '257px' : '70px', // Adjust based on collapsed width (16px + padding)
-        transition: 'margin-left 0.3s ease-in-out'
-      }}>
+      <div style={mainWrapperStyle}>
         <Header />
         
-        <div style={styles.contentWrapper}>
-          <div style={styles.formContainer}>
-            {/* <h2 style={styles.formTitle}>Create New Plan</h2> */}
+        <div style={contentWrapperStyle}>
+          <div style={formContainerStyle}>
+            {/* <h2 style={formTitleStyle}>Create New Plan</h2> */}
             
-            {error && <div style={additionalStyles.errorMessage}>{error}</div>}
+            {error && <div style={errorMessageStyle}>{error}</div>}
             
             {!token && (
-              <div style={additionalStyles.warningMessage}>
-                Authentication token not found. Please <a href="/" style={additionalStyles.link}>log in</a> to continue.
+              <div style={warningMessageStyle}>
+                Authentication token not found. Please <a href="/" style={linkStyle}>log in</a> to continue.
               </div>
             )}
             
             <form onSubmit={handleCreatePlan}>
-              <div style={styles.formGrid}>
+              <div style={formGridStyle}>
                 {[ 
-                  { label: 'Plan Name', name: 'planname', placeholder: 'Enter plan name', required: true },
-                  { label: 'Country', name: 'country', placeholder: 'Enter country', required: true },
-                  { label: 'Description', name: 'description', placeholder: 'Enter description' },
-                  { label: 'Price', name: 'price', placeholder: 'Enter price (e.g., 40.00)', required: true },
-                  { label: 'Call Limit', name: 'call_limit', placeholder: 'Enter call limit (e.g., 10)' },
-                  { label: 'SMS Limit', name: 'sms_limit', placeholder: 'Enter SMS limit (e.g., 5)' },
-                  { label: 'Data Limit', name: 'data_limit', placeholder: 'Enter data limit (e.g., 5)' },
-                  { label: 'Validity', name: 'validity', placeholder: 'Enter validity in days (e.g., 5)', required: true },
-                  { label: 'Number Assign', name: 'number_assign', placeholder: 'Enter number assign', disabled: true }
+                  { label: 'Plan Name', name: 'planname', placeholder: 'Enter plan name', required: true, disabled: false },
+                  { label: 'Country', name: 'country', placeholder: 'Enter country', required: true, disabled: false },
+                  { label: 'Description', name: 'description', placeholder: 'Enter description', required: false, disabled: false },
                 ].map(({ label, name, placeholder, disabled, required }) => (
-                  <div key={name} style={styles.formGroup as React.CSSProperties}>
-                    <label style={styles.label}>
+                  <div key={name} style={formGroupStyle}>
+                    <label style={labelStyle}>
                       {label} {required && <span style={{ color: 'red' }}>*</span>}
                     </label>
                     <input
@@ -222,24 +352,84 @@ export default function CreateTopUpPlan() {
                       onChange={handleChange}
                       placeholder={placeholder}
                       disabled={disabled || !token}
-                      style={styles.input}
+                      style={inputStyle}
                       required={required}
                     />
                   </div>
                 ))}
+                
+                {/* Per Minute Price with dollar sign */}
+                <div style={formGroupStyle}>
+                  <label style={labelStyle}>
+                    Per Minute Price (USD) <span style={{ color: 'red' }}>*</span>
+                  </label>
+                  <div style={inputWithDollarStyle}>
+                    <span style={dollarSignStyle}>$</span>
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleChange}
+                      placeholder="Enter per minute price(e.g., 40.00)"
+                      disabled={!token}
+                      style={inputDollarStyle}
+                      required={true}
+                    />
+                  </div>
+                </div>
+                
+                {[ 
+                  { label: 'Call Limit', name: 'call_limit', placeholder: 'Enter call limit (e.g., 10)' },
+                  { label: 'SMS Limit', name: 'sms_limit', placeholder: 'Enter SMS limit (e.g., 5)' },
+                  { label: 'Data Limit', name: 'data_limit', placeholder: 'Enter data limit (e.g., 5)' },
+                  { label: 'Validity (In Days)', name: 'validity', placeholder: 'Enter validity in days (e.g., 5)', required: true },
+                  { label: 'Number Assign', name: 'number_assign', placeholder: 'Enter number assign', disabled: true }
+                ].map(({ label, name, placeholder, disabled, required }) => (
+                  <div key={name} style={formGroupStyle}>
+                    <label style={labelStyle}>
+                      {label} {required && <span style={{ color: 'red' }}>*</span>}
+                    </label>
+                    <input
+                      type="number"
+                      name={name}
+                      value={formData[name as keyof FormData]}
+                      onChange={handleChange}
+                      placeholder={placeholder}
+                      disabled={disabled || !token}
+                      style={inputStyle}
+                      required={required}
+                    />
+                  </div>
+                ))}
+                
+                {/* Display calculated buy cost with dollar sign */}
+                <div style={formGroupStyle}>
+                  <label style={labelStyle}>
+                    Buy Cost (Calculated)
+                  </label>
+                  <div style={inputWithDollarStyle}>
+                    <span style={dollarSignStyle}>$</span>
+                    <input
+                      type="text"
+                      value={buyCost}
+                      disabled={true}
+                      style={readOnlyInputDollarStyle}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div style={styles.buttonGroup}>
+              <div style={buttonGroupStyle}>
                 <button 
                   type="submit" 
-                  style={styles.createButton}
+                  style={createButtonStyle}
                   disabled={isLoading || !token}
                 >
                   {isLoading ? 'Creating...' : 'Create Plan'}
                 </button>
                 <button 
                   type="button" 
-                  style={styles.detailsButton}
+                  style={detailsButtonStyle}
                   onClick={() => router.push('/plansList')}
                   disabled={isLoading}
                 >
@@ -253,109 +443,3 @@ export default function CreateTopUpPlan() {
     </div>
   );
 }
-
-// Updated styles
-const additionalStyles = {
-  errorMessage: {
-    color: '#dc2626',
-    padding: '0.75rem',
-    marginBottom: '1rem',
-    backgroundColor: '#fee2e2',
-    borderRadius: '0.25rem',
-    border: '1px solid #fecaca',
-  },
-  warningMessage: {
-    color: '#d97706',
-    padding: '0.75rem',
-    marginBottom: '1rem',
-    backgroundColor: '#fef3c7',
-    borderRadius: '0.25rem',
-    border: '1px solid #fde68a',
-  },
-  link: {
-    color: '#1d4ed8',
-    textDecoration: 'underline',
-    fontWeight: 500,
-  }
-};
-
-const styles = {
-  pageContainer: {
-    display: 'flex',
-    minHeight: '100vh',
-    fontFamily: 'system-ui, sans-serif',
-    backgroundColor: '#f5f6f7'
-  },
-  mainWrapper: {
-    flex: 1,
-    marginLeft: '257px', 
-    padding: '0rem'
-  },
-  contentWrapper: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    paddingTop: '1rem'
-  },
-  pageTitle: {
-    fontSize: '2rem',
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: '1.5rem'
-  },
-  formContainer: {
-    backgroundColor: 'white',
-    borderRadius: '0.5rem',
-    padding: '1rem',
-    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)'
-  },
-  formTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '600',
-    marginBottom: '0.5rem',
-    color: '#444'
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '1rem'
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  label: {
-    fontWeight: '500',
-    marginBottom: '0.1rem',
-    color: '#333'
-  },
-  input: {
-    padding: '0.4rem',
-    border: '1px solid #ccc',
-    borderRadius: '0.375rem',
-    fontSize: '1rem',
-    outline: 'none'
-  },
-  buttonGroup: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '1rem',
-    marginTop: '2rem'
-  },
-  createButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#111827',
-    color: 'white',
-    border: 'none',
-    borderRadius: '0.375rem',
-    fontWeight: '500',
-    cursor: 'pointer'
-  },
-  detailsButton: {
-    padding: '0.75rem 1.5rem',
-    backgroundColor: '#ffffff',
-    border: '1px solid #ccc',
-    borderRadius: '0.375rem',
-    fontWeight: '500',
-    cursor: 'pointer'
-  }
-};

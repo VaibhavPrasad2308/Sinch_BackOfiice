@@ -149,24 +149,25 @@ export default function PlansList() {
 
   // New function to handle plan updates
   const handleUpdatePlan = async (planData: UpdateFormData) => {
-    try {
-      const authToken = localStorage.getItem('authToken');
-      
-      if (!authToken) {
-        console.log('No auth token found for update');
-        throw new Error('Authentication token not found');
-      }
-      
-      console.log('Sending update plan request');
-      
-      const response = await fetch('https://stagedialer.clay.in/api/plan/create/update', {
-        method: 'POST',
-        headers: {
-          'Authorization': authToken,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(planData)
-      });
+     try {
+    const authToken = localStorage.getItem('authToken');
+    
+    if (!authToken) {
+      console.log('No auth token found for update');
+      throw new Error('Authentication token not found');
+    }
+    
+    console.log('Sending update plan request');
+    
+    // Change this URL from localhost to the staging URL
+    const response = await fetch('https://stagedialer.clay.in/api/plan/updateplan', {
+      method: 'POST',
+      headers: {
+        'Authorization': authToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(planData)
+    });
       
       console.log('Update plan response status:', response.status);
 
