@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Sidebar from '@/components/sidebar';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -18,45 +18,63 @@ interface CallLog {
   result: string;
 }
 
+// Add pagination state interface
+interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalItems: number;
+}
+
 export default function CallLogs() {
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [eventFilter, setEventFilter] = useState<string>('');
-const [resultFilter, setResultFilter] = useState<string>('');
+  const [resultFilter, setResultFilter] = useState<string>('');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  
+  // Add pagination state
+  const [paginationState, setPaginationState] = useState<PaginationState>({
+    currentPage: 1,
+    totalPages: 1,
+    pageSize: 30,
+    totalItems: 0
+  });
 
-
-// Add this after fetching the call logs
-const uniqueEvents = Array.from(new Set(callLogs.map(log => log.event))).filter(Boolean);
-const uniqueResults = Array.from(new Set(callLogs.map(log => log.result))).filter(Boolean);
+  // Add this after fetching the call logs
+  const uniqueEvents = Array.from(new Set(callLogs.map(log => log.event))).filter(Boolean);
+  const uniqueResults = Array.from(new Set(callLogs.map(log => log.result))).filter(Boolean);
 
   useEffect(() => {
     fetchCallLogs();
   }, []);
+  
   useEffect(() => {
-      // Read sidebar state from localStorage (matches your sidebar component)
-      const savedState = localStorage.getItem('sidebarOpen');
-      if (savedState !== null) {
-        setSidebarOpen(JSON.parse(savedState));
+    // Read sidebar state from localStorage (matches your sidebar component)
+    const savedState = localStorage.getItem('sidebarOpen');
+    if (savedState !== null) {
+      setSidebarOpen(JSON.parse(savedState));
+    }
+  }, []);
+  
+  useEffect(() => {
+    // Function to handle storage events
+    const handleStorageChange = () => {
+      const currentState = localStorage.getItem('sidebarOpen');
+      if (currentState !== null) {
+        setSidebarOpen(JSON.parse(currentState));
       }
-    }, []);
-    useEffect(() => {
-      // Function to handle storage events
-      const handleStorageChange = () => {
-        const currentState = localStorage.getItem('sidebarOpen');
-        if (currentState !== null) {
-          setSidebarOpen(JSON.parse(currentState));
-        }
-      };
-      
-      // Set up an interval to check localStorage (since storage event only fires in other tabs)
-      const intervalId = setInterval(handleStorageChange, 300);
-      
-      // Clean up on unmount
-      return () => clearInterval(intervalId);
-    }, []);
+    };
+    
+    // Set up an interval to check localStorage (since storage event only fires in other tabs)
+    const intervalId = setInterval(handleStorageChange, 300);
+    
+    // Clean up on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+  
   const fetchCallLogs = async () => {
     setIsLoading(true);
     setError(null);
@@ -66,20 +84,26 @@ const uniqueResults = Array.from(new Set(callLogs.map(log => log.result))).filte
 
       const data = await response.json();
       if (Array.isArray(data.data)) {
-        setCallLogs(
-          data.data.map((entry: any) => ({
-            user: entry.user || '',
-            call_id: entry.callid || '',
-            caller_number: entry.from_number || entry.cli || '',
-            status: entry.result || 'unknown',
-            duration: 0,
-            start_time: entry.raw_payload?.timestamp || entry.created_at || '',
-            end_time: '',
-            event:entry.event || '',
-            result: entry.result || '',
-
-          }))
-        );
+        const logs = data.data.map((entry: any) => ({
+          user: entry.user || '',
+          call_id: entry.callid || '',
+          caller_number: entry.from_number || entry.cli || '',
+          status: entry.result || 'unknown',
+          duration: 0,
+          start_time: entry.raw_payload?.timestamp || entry.created_at || '',
+          end_time: '',
+          event: entry.event || '',
+          result: entry.result || '',
+        }));
+        
+        setCallLogs(logs);
+        
+        // Update pagination state with total count
+        setPaginationState(prev => ({
+          ...prev,
+          totalPages: Math.ceil(logs.length / prev.pageSize),
+          totalItems: logs.length
+        }));
       } else {
         setError('Invalid data format from server.');
       }
@@ -90,15 +114,123 @@ const uniqueResults = Array.from(new Set(callLogs.map(log => log.result))).filte
     }
   };
 
-// Compute filtered logs for rendering
-const filteredLogs = callLogs.filter(log =>
-  (log.call_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.caller_number.toLowerCase().includes(searchTerm.toLowerCase())) &&
-  (eventFilter === '' || log.event === eventFilter) &&
-  (resultFilter === '' || log.result === resultFilter)
-);
+  // Page change handler
+  const handlePageChange = useCallback((newPage: number) => {
+    setPaginationState(prev => ({
+      ...prev,
+      currentPage: newPage
+    }));
+    // Scroll to top when changing pages
+    window.scrollTo(0, 0);
+  }, []);
 
-return (
+  // Compute filtered logs for rendering
+  const filteredLogs = callLogs.filter(log =>
+    (log.call_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.caller_number.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (eventFilter === '' || log.event === eventFilter) &&
+    (resultFilter === '' || log.result === resultFilter)
+  );
+  
+  // Apply pagination to filtered logs
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (paginationState.currentPage - 1) * paginationState.pageSize;
+    const endIndex = startIndex + paginationState.pageSize;
+    
+    // Update total pages based on filtered logs
+    if (filteredLogs.length !== paginationState.totalItems) {
+      setPaginationState(prev => ({
+        ...prev,
+        totalPages: Math.ceil(filteredLogs.length / prev.pageSize),
+        totalItems: filteredLogs.length
+      }));
+    }
+    
+    return filteredLogs.slice(startIndex, endIndex);
+  }, [filteredLogs, paginationState.currentPage, paginationState.pageSize, paginationState.totalItems]);
+
+  // Pagination component
+  // Pagination component
+const PaginationComponent = () => {
+  const { currentPage, totalPages } = paginationState;
+  
+  const pageNumbers = useMemo(() => {
+    const delta = 1;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (
+        i === 1 || 
+        i === totalPages || 
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
+  }, [currentPage, totalPages]);
+
+  return (
+    <div style={styles.paginationContainer}>
+      <button 
+        style={{
+          ...styles.paginationArrow,
+          ...(currentPage === 1 ? styles.paginationArrowDisabled : {})
+        }}
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+      >
+        &lt;
+      </button>
+
+      {pageNumbers.map((pageNumber, index) => (
+        <React.Fragment key={index}>
+          {pageNumber === '...' ? (
+            <span style={styles.paginationDots}>...</span>
+          ) : (
+            <button
+              style={{
+                ...styles.paginationNumber,
+                ...(pageNumber === currentPage ? styles.paginationNumberActive : {})
+              }}
+              onClick={() => handlePageChange(Number(pageNumber))}
+            >
+              {pageNumber}
+            </button>
+          )}
+        </React.Fragment>
+      ))}
+
+      <button 
+        style={{
+          ...styles.paginationArrow,
+          ...(currentPage === totalPages ? styles.paginationArrowDisabled : {})
+        }}
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        &gt;
+      </button>
+    </div>
+  );
+};
+
+  return (
     <div style={styles.pageContainer}>
       <Sidebar />
       <div style={{
@@ -109,45 +241,42 @@ return (
         <Header  />
         <div style={styles.contentWrapper}>
           <div style={styles.breadcrumb}>
-          <h1 style={styles.pageTitle}>Call Logs</h1>
-           <div style={styles.filtersContainer}>
-    <div style={styles.filterItem}>
-      <select 
-        value={eventFilter} 
-        onChange={(e) => setEventFilter(e.target.value)}
-        style={styles.filterSelect}
-      >
-        <option value="">All Events</option>
-        {uniqueEvents.map(event => (
-          <option key={event} value={event}>{event}</option>
-        ))}
-      </select>
-    </div>
-    <div style={styles.filterItem}>
-      <select 
-        value={resultFilter} 
-        onChange={(e) => setResultFilter(e.target.value)}
-        style={styles.filterSelect}
-      >
-        <option value="">All Results</option>
-        {uniqueResults.map(result => (
-          <option key={result} value={result}>{result}</option>
-        ))}
-      </select>
-    </div>
-    <div style={styles.searchBar}>
-      <input
-        type="text"
-        placeholder="Search by call ID or number..."
-        style={styles.searchInput}
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-    </div>
-  </div>
-          
-            
-          
+            <h1 style={styles.pageTitle}>Call Logs</h1>
+            <div style={styles.filtersContainer}>
+              <div style={styles.filterItem}>
+                <select 
+                  value={eventFilter} 
+                  onChange={(e) => setEventFilter(e.target.value)}
+                  style={styles.filterSelect}
+                >
+                  <option value="">All Events</option>
+                  {uniqueEvents.map(event => (
+                    <option key={event} value={event}>{event}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.filterItem}>
+                <select 
+                  value={resultFilter} 
+                  onChange={(e) => setResultFilter(e.target.value)}
+                  style={styles.filterSelect}
+                >
+                  <option value="">All Results</option>
+                  {uniqueResults.map(result => (
+                    <option key={result} value={result}>{result}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={styles.searchBar}>
+                <input
+                  type="text"
+                  placeholder="Search by call ID or number..."
+                  style={styles.searchInput}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
           <div style={styles.cardContainer}>
             {isLoading ? (
@@ -165,14 +294,11 @@ return (
                       <th style={styles.tableHeader}>Status</th>
                       <th style={styles.tableHeader}>Event</th>
                       <th style={styles.tableHeader}>Start Time</th>
-                     <th style={styles.tableHeader}>Result</th>
-
-                      
-                      {/* <th style={styles.tableHeader}>End Time</th> */}
+                      <th style={styles.tableHeader}>Result</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLogs.map((log, index) => (
+                    {paginatedLogs.map((log, index) => (
                       <tr key={log.call_id} style={index % 2 ? styles.oddRow : styles.evenRow}>
                         <td style={styles.tableCell}>{log.user}</td>
                         <td style={styles.tableCell}>{log.call_id}</td>
@@ -192,11 +318,17 @@ return (
                     ))}
                   </tbody>
                 </table>
+                
+                {/* Add pagination component after the table */}
+                {filteredLogs.length > 0 && <PaginationComponent />}
               </div>
             )}
           </div>
         </div>
       </div>
+      
+      {/* Add the pagination CSS */}
+      
     </div>
   );
 }
@@ -211,24 +343,80 @@ function getStatusColor(status: string): string {
 }
 
 const styles = {
+  // ... existing styles remain unchanged
+   paginationContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    margin: '20px 0',
+  } as React.CSSProperties,
+  
+  paginationArrow: {
+    width: '32px',
+    height: '32px',
+    border: '1px solid #e0e0e0',
+    background: 'white',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontSize: '18px',
+    color: '#666',
+    padding: 0,
+    lineHeight: 1,
+  } as React.CSSProperties,
+  
+  paginationArrowDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  } as React.CSSProperties,
+  
+  paginationNumber: {
+    width: '32px',
+    height: '32px',
+    border: '1px solid #e0e0e0',
+    background: 'white',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontSize: '14px',
+    padding: 0,
+    lineHeight: 1,
+    color: '#666',
+  } as React.CSSProperties,
+  
+  paginationNumberActive: {
+    background: '#2C2D2D',
+    color: 'white',
+    // borderColor: '#FFC107',
+    fontWeight: 'bold',
+  } as React.CSSProperties,
+  
+  paginationDots: {
+    padding: '0 5px',
+  } as React.CSSProperties,
   filtersContainer: {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '1rem',
-} as React.CSSProperties,
-filterItem: {
-  minWidth: '150px',
-} as React.CSSProperties,
-filterSelect: {
-  width: '100%',
-  height: '35px',
-  padding: '0.5rem',
-  border: '1px solid #e0e0e0',
-  borderRadius: '2rem',
-  outline: 'none',
-  fontSize: '0.85rem',
-  backgroundColor: 'white',
-} as React.CSSProperties,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  } as React.CSSProperties,
+  filterItem: {
+    minWidth: '150px',
+  } as React.CSSProperties,
+  filterSelect: {
+    width: '100%',
+    height: '35px',
+    padding: '0.5rem',
+    border: '1px solid #e0e0e0',
+    borderRadius: '2rem',
+    outline: 'none',
+    fontSize: '0.85rem',
+    backgroundColor: 'white',
+  } as React.CSSProperties,
 
   pageContainer: {
     display: 'flex',
@@ -327,7 +515,6 @@ filterSelect: {
   } as React.CSSProperties,
   tableCell: {
     padding: '0.3rem 1rem',
-
     borderBottom: '1px solid #e0e0e0',
     textAlign: 'center' as const
   } as React.CSSProperties,

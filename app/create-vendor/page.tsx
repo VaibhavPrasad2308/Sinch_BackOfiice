@@ -3,6 +3,7 @@
 import Header from '@/components/Header';
 import Sidebar from '@/components/sidebar';
 import { useRouter } from 'next/navigation';
+import { Result } from 'postcss';
 import React, { useEffect, useState } from 'react'
 
 // Updated interface to match the API request structure
@@ -24,7 +25,7 @@ function page() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     
     // Updated formData structure to match API request fields
     const [formData, setFormData] = useState<FormData>({
@@ -118,9 +119,9 @@ function page() {
           const data = await response.json();
           console.log('Response data:', data);
           
-          if (response.ok && data.statusCode === 200) {
-            alert('Vendor created successfully');
-            router.push('/vendorList'); // Updated to redirect to vendor list instead of plans list
+          if (response.ok || data.statusCode === 201) {
+           alert('Vendor created successfully');
+      router.push('/vendorList'); // Updated to redirect to vendor list instead of plans list
           } else {
             setError(data.message || `Failed to create Vendor: ${response.status}`);
           }
@@ -151,7 +152,7 @@ function page() {
         <div style={styles.contentWrapper}>
           <div style={styles.formContainer}>
             {/* <h2 style={styles.formTitle}>Create New Vendor</h2> */}
-            
+            {successMessage && <div style={additionalStyles.successMessage}>{successMessage}</div>}
             {error && <div style={additionalStyles.errorMessage}>{error}</div>}
             
             <form onSubmit={handleCreateVendor}> {/* Updated form submission handler name */}
@@ -212,7 +213,15 @@ const additionalStyles = {
     marginBottom: '1rem',
     backgroundColor: '#fee2e2',
     borderRadius: '0.25rem',
-    border: '1px solid #fecaca',
+    border: '1px solidrgb(88, 246, 125)',
+  },
+  successMessage: {
+    color: '#166534',
+    padding: '0.75rem',
+    marginBottom: '1rem',
+    backgroundColor: '#dcfce7',
+    borderRadius: '0.25rem',
+    border: '1px solid #86efac',
   },
 };
 

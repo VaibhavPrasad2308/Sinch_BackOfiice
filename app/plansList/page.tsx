@@ -4,7 +4,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/sidebar';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface Plan {
   plancode: number;
@@ -25,6 +25,12 @@ interface ApiResponse {
   data: Plan[];
 }
 
+interface PaginationState {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalItems: number;
+}
 interface UpdateFormData {
   plancode: number;
   planname: string;
@@ -49,6 +55,12 @@ export default function PlansList() {
   // New states for update functionality
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<UpdateFormData | null>(null);
+   const [paginationState, setPaginationState] = useState<PaginationState>({
+      currentPage: 1,
+      totalPages: 1,
+      pageSize: 20,
+      totalItems: 0
+    });
   
   useEffect(() => {
     // Read sidebar state from localStorage (matches your sidebar component)
@@ -87,11 +99,20 @@ export default function PlansList() {
     console.log('User is authenticated, fetching plans');
     fetchPlans();
   }, [router]);
+   const handlePageChange = useCallback((newPage: number) => {
+    setPaginationState(prev => ({
+      ...prev,
+      currentPage: newPage
+    }));
+    // Scroll to top when changing pages
+    window.scrollTo(0, 0);
+  }, []);
 
   const fetchPlans = async () => {
     console.log("Fetching plans...");
     setIsLoading(true);
     setError(null);
+    
     
     try {
       const authToken = localStorage.getItem('authToken');
@@ -387,6 +408,101 @@ export default function PlansList() {
     );
   });
 
+    const paginatedPlans = useMemo(() => {
+    const startIndex = (paginationState.currentPage - 1) * paginationState.pageSize;
+    const endIndex = startIndex + paginationState.pageSize;
+    
+    // Update total pages based on filtered plans
+    if (filteredPlans.length !== paginationState.totalItems) {
+      setPaginationState(prev => ({
+        ...prev,
+        totalPages: Math.ceil(filteredPlans.length / prev.pageSize),
+        totalItems: filteredPlans.length
+      }));
+    }
+    
+    return filteredPlans.slice(startIndex, endIndex);
+  }, [filteredPlans, paginationState.currentPage, paginationState.pageSize, paginationState.totalItems]);
+
+   const PaginationComponent = () => {
+    const { currentPage, totalPages } = paginationState;
+    
+    const pageNumbers = useMemo(() => {
+      const delta = 1;
+      const range = [];
+      const rangeWithDots = [];
+      let l;
+
+      for (let i = 1; i <= totalPages; i++) {
+        if (
+          i === 1 || 
+          i === totalPages || 
+          (i >= currentPage - delta && i <= currentPage + delta)
+        ) {
+          range.push(i);
+        }
+      }
+
+      for (let i of range) {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1);
+          } else if (i - l !== 1) {
+            rangeWithDots.push('...');
+          }
+        }
+        rangeWithDots.push(i);
+        l = i;
+      }
+
+      return rangeWithDots;
+    }, [currentPage, totalPages]);
+
+    return (
+      <div style={styles.paginationContainer}>
+        <button 
+          style={{
+            ...styles.paginationArrow,
+            ...(currentPage === 1 ? styles.paginationArrowDisabled : {})
+          }}
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          &lt;
+        </button>
+
+        {pageNumbers.map((pageNumber, index) => (
+          <React.Fragment key={index}>
+            {pageNumber === '...' ? (
+              <span style={styles.paginationDots}>...</span>
+            ) : (
+              <button
+                style={{
+                  ...styles.paginationNumber,
+                  ...(pageNumber === currentPage ? styles.paginationNumberActive : {})
+                }}
+                onClick={() => handlePageChange(Number(pageNumber))}
+              >
+                {pageNumber}
+              </button>
+            )}
+          </React.Fragment>
+        ))}
+
+        <button 
+          style={{
+            ...styles.paginationArrow,
+            ...(currentPage === totalPages ? styles.paginationArrowDisabled : {})
+          }}
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          &gt;
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div style={styles.pageContainer}>
       <Sidebar />
@@ -451,8 +567,8 @@ export default function PlansList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPlans.length > 0 ? (
-                    filteredPlans.map((plan, index) => (
+                  {paginatedPlans.length > 0 ? (
+                    paginatedPlans.map((plan, index) => (
                       <tr key={plan.plancode} style={index % 2 === 1 ? styles.oddRow : styles.evenRow}>
                         <td style={styles.tableCell}>{plan.plancode}</td>
                         <td style={styles.tableCell}>{plan.planname}</td>
@@ -501,6 +617,9 @@ export default function PlansList() {
                   )}
                 </tbody>
               </table>
+              
+              {/* Add pagination component after the table */}
+              {filteredPlans.length > 0 && <PaginationComponent />}
             </div>
           )}
         </div>
@@ -524,6 +643,63 @@ export default function PlansList() {
 // Original styles plus new modal styles
 const styles = {
   // ... your existing styles from PlansList
+  paginationContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    margin: '20px 0',
+  } as React.CSSProperties,
+  
+  paginationArrow: {
+    width: '32px',
+    height: '32px',
+    border: '1px solid #e0e0e0',
+    background: 'white',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontSize: '18px',
+    color: '#666',
+    padding: 0,
+    lineHeight: 1,
+  } as React.CSSProperties,
+  
+  paginationArrowDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+  } as React.CSSProperties,
+  
+  paginationNumber: {
+    width: '32px',
+    height: '32px',
+    border: '1px solid #e0e0e0',
+    background: 'white',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontSize: '14px',
+    padding: 0,
+    lineHeight: 1,
+    color: '#666',
+  } as React.CSSProperties,
+  
+  paginationNumberActive: {
+    background: '#FFC107',
+    color: '#000',
+    borderColor: '#FFC107',
+    fontWeight: 'bold',
+    boxShadow: '0 0 0 1px rgba(255, 193, 7, 0.3)',
+  } as React.CSSProperties,
+  
+  paginationDots: {
+    padding: '0 5px',
+  } as React.CSSProperties,
+
   pageContainer: {
     display: 'flex',
     minHeight: '100vh',
